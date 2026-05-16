@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import { io } from 'socket.io-client';
 import { 
   Library, 
@@ -303,28 +303,30 @@ function ActionView({ title, onBack, type }: { title: string, onBack: () => void
 
   // Webcam QR Scanner init
   useEffect(() => {
-    let html5QrcodeScanner: any = null;
+    let html5QrCode: Html5Qrcode | null = null;
     
     // Only initialize scanner when on step 2 and no error/loading message is blocking the flow
     if (step === 2 && status === 'idle') {
-       html5QrcodeScanner = new Html5QrcodeScanner(
-        "qr-reader",
+      html5QrCode = new Html5Qrcode("qr-reader");
+      html5QrCode.start(
+        { facingMode: "environment" }, 
         { fps: 10, qrbox: { width: 250, height: 250 } },
-        /* verbose= */ false
-      );
-      
-      html5QrcodeScanner.render((decodedText: string) => {
-        if (status !== 'loading' && status !== 'success') {
-           try { html5QrcodeScanner.clear(); } catch(e){}
-           processQrCode(decodedText);
-        }
-      }, () => {});
+        (decodedText: string) => {
+          if (status !== 'loading' && status !== 'success') {
+             try { html5QrCode?.stop(); } catch(e){}
+             processQrCode(decodedText);
+          }
+        }, 
+        () => {} // suppress constant frame errors
+      ).catch(err => {
+         console.warn("Gagal mengakses kamera:", err);
+      });
     }
     
     return () => {
-      if (html5QrcodeScanner) {
+      if (html5QrCode) {
         try {
-          html5QrcodeScanner.clear();
+          html5QrCode.stop().catch(() => {});
         } catch (e) {}
       }
     };
