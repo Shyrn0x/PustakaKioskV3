@@ -72,8 +72,10 @@ export default function App() {
         {/* Header */}
         <header className="px-10 py-6 border-b border-gray-100 flex items-center justify-between no-print">
           <div 
-            className="flex items-center gap-3 cursor-pointer group" 
-            onClick={() => setView('HOME')}
+            className={`flex items-center gap-3 group ${view !== 'DASHBOARD' ? 'cursor-pointer' : ''}`}
+            onClick={() => {
+              if (view !== 'DASHBOARD') setView('HOME');
+            }}
           >
             <div className="bg-[#6366f1] p-2.5 rounded-2xl text-white shadow-lg shadow-indigo-200 group-hover:scale-110 transition-transform">
               <Library size={32} />
@@ -94,11 +96,14 @@ export default function App() {
             </div>
             
             <button 
-              onClick={() => setView('STAFF_LOGIN')}
-              className="flex items-center gap-2 px-5 py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-2xl transition-all text-sm font-bold border border-gray-100"
+              onClick={() => {
+                if (view !== 'DASHBOARD') setView('STAFF_LOGIN');
+              }}
+              disabled={view === 'DASHBOARD'}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl transition-all text-sm font-bold border ${view === 'DASHBOARD' ? 'bg-indigo-50 border-indigo-100 text-indigo-600 cursor-default opacity-80' : 'bg-gray-50 hover:bg-gray-100 text-gray-600 border-gray-100'}`}
             >
               <User size={18} />
-              Portal Staff
+              {view === 'DASHBOARD' ? 'Admin Aktif' : 'Portal Staff'}
             </button>
           </div>
         </header>
