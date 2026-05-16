@@ -200,7 +200,6 @@ function ActionView({ title, onBack, type }: { title: string, onBack: () => void
   const [scannedInput, setScannedInput] = useState("");
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState("");
-  const [manualQrCode, setManualQrCode] = useState("");
 
   const processQrCode = async (input: string) => {
     if (status === 'loading') return;
@@ -417,27 +416,6 @@ function ActionView({ title, onBack, type }: { title: string, onBack: () => void
                     <video ref={videoRef} className="w-full h-full object-contain"></video>
                     <canvas ref={canvasRef} className="hidden"></canvas>
                   </div>
-                  
-                  {/* Manual Fallback Input */}
-                  <form 
-                    onSubmit={(e) => { e.preventDefault(); if (manualQrCode) processQrCode(manualQrCode); }}
-                    className="flex items-center gap-2 mt-4"
-                  >
-                    <input 
-                      type="text" 
-                      placeholder="Atau ketik ID Buku..." 
-                      className="flex-1 px-4 py-3 rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#8b5cf6]"
-                      value={manualQrCode}
-                      onChange={(e) => setManualQrCode(e.target.value)}
-                    />
-                    <button 
-                      type="submit" 
-                      disabled={!manualQrCode}
-                      className="px-6 py-3 bg-[#8b5cf6] text-white font-bold rounded-xl disabled:bg-gray-300 hover:bg-[#7c4dff] transition-colors"
-                    >
-                      Proses
-                    </button>
-                  </form>
                 </div>
               )}
               
