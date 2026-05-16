@@ -310,7 +310,11 @@ function ActionView({ title, onBack, type }: { title: string, onBack: () => void
       html5QrCode = new Html5Qrcode("qr-reader");
       html5QrCode.start(
         { facingMode: "environment" }, 
-        { fps: 10, qrbox: { width: 250, height: 250 } },
+        { 
+          fps: 10,
+          // Menghapus batas qrbox agar kamera mendeteksi keseluruhan frame
+          // Ini mencegah masalah ketika QR code terlalu besar atau terlalu dekat dengan kamera
+        },
         (decodedText: string) => {
           if (status !== 'loading' && status !== 'success') {
              try { html5QrCode?.stop(); } catch(e){}
