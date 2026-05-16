@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Scanner } from '@yudiel/react-qr-scanner';
 import { io } from 'socket.io-client';
 import { 
   Library, 
@@ -301,41 +301,6 @@ function ActionView({ title, onBack, type }: { title: string, onBack: () => void
     return () => { socket.disconnect(); };
   }, [step, status]);
 
-  // Webcam QR Scanner init
-  useEffect(() => {
-    let html5QrCode: Html5Qrcode | null = null;
-    
-    // Only initialize scanner when on step 2 and no error/loading message is blocking the flow
-    if (step === 2 && status === 'idle') {
-      html5QrCode = new Html5Qrcode("qr-reader");
-      html5QrCode.start(
-        { facingMode: "environment" }, 
-        { 
-          fps: 10,
-          // Menghapus batas qrbox agar kamera mendeteksi keseluruhan frame
-          // Ini mencegah masalah ketika QR code terlalu besar atau terlalu dekat dengan kamera
-        },
-        (decodedText: string) => {
-          if (status !== 'loading' && status !== 'success') {
-             try { html5QrCode?.stop(); } catch(e){}
-             processQrCode(decodedText);
-          }
-        }, 
-        () => {} // suppress constant frame errors
-      ).catch(err => {
-         console.warn("Gagal mengakses kamera:", err);
-      });
-    }
-    
-    return () => {
-      if (html5QrCode) {
-        try {
-          html5QrCode.stop().catch(() => {});
-        } catch (e) {}
-      }
-    };
-  }, [step, status]);
-
   return (
     <div className="flex-1 flex flex-col">
       <div className="flex items-center gap-4 mb-8">
@@ -374,10 +339,27 @@ function ActionView({ title, onBack, type }: { title: string, onBack: () => void
                   )}
                 </div>
               ) : (
-                <div id="qr-reader" className="w-full max-w-sm rounded-[2rem] overflow-hidden border-2 border-dashed border-indigo-200"></div>
+                <div className="w-full max-w-sm rounded-[2rem] overflow-hidden border-2 border-dashed border-indigo-200 aspect-square relative">
+                  <Scanner 
+                    onScan={(result) => {
+                      if (result && result.length > 0 && status !== 'loading' && status !== 'success') {
+                        processQrCode(result[0].rawValue);
+                      }
+                    }} 
+                    formats={['qr_code']}
+                    components={{
+                       audio: false,
+                       onOff: false,
+                       torch: false,
+                       finder: true,
+                    }}
+                    allowMultiple={true}
+                    scanDelay={500}
+                  />
+                </div>
               )}
               
-              {status === 'idle' && (
+              {status === 'idle' && step === 1 && (
                 <div className="absolute -bottom-2 right-1/2 translate-x-14 bg-[#8b5cf6] text-white w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl shadow-lg border-4 border-white z-10">
                   {step}
                 </div>
