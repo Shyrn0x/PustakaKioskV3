@@ -332,18 +332,19 @@ function ActionView({ title, onBack, type }: { title: string, onBack: () => void
         if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
           const canvas = canvasRef.current;
           const video = videoRef.current;
-          if (canvas) {
-            canvas.height = video.videoHeight;
+          if (canvas && video.videoWidth > 0 && video.videoHeight > 0) {
             canvas.width = video.videoWidth;
-            const ctx = canvas.getContext("2d");
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext("2d", { willReadFrequently: true });
             if (ctx) {
               ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
               const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
               const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                inversionAttempts: "dontInvert",
+                inversionAttempts: "attemptBoth",
               });
               
-              if (code && code.data) {
+              if (code && code.data && code.data.trim() !== '') {
+                // Ensure only non-empty strings are sent
                 processQrCode(code.data);
                 isActive = false; // Stop scanning after success
                 return;
@@ -406,7 +407,7 @@ function ActionView({ title, onBack, type }: { title: string, onBack: () => void
                   )}
                 </div>
               ) : (
-                <div className="w-full max-w-sm rounded-[2rem] overflow-hidden bg-black flex items-center justify-center aspect-square shadow-xl">
+                <div className="w-full max-w-sm overflow-hidden bg-black flex items-center justify-center aspect-square">
                   <video ref={videoRef} className="w-full h-full object-cover"></video>
                   <canvas ref={canvasRef} className="hidden"></canvas>
                 </div>
