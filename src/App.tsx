@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Scanner } from '@yudiel/react-qr-scanner';
+import jsQR from 'jsqr';
 import { io } from 'socket.io-client';
 import { 
   Library, 
@@ -301,6 +301,73 @@ function ActionView({ title, onBack, type }: { title: string, onBack: () => void
     return () => { socket.disconnect(); };
   }, [step, status]);
 
+  // JSQR Scanner integration
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    let animationFrameId: number;
+    let localStream: MediaStream | null = null;
+    let isActive = true;
+
+    if (step === 2 && status === 'idle') {
+      const startCamera = async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+          localStream = stream;
+          if (videoRef.current && isActive) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.setAttribute("playsinline", "true"); // required to tell iOS safari we don't want fullscreen
+            await videoRef.current.play();
+            requestAnimationFrame(tick);
+          }
+        } catch (err) {
+          console.warn("Error accessing camera:", err);
+        }
+      };
+
+      const tick = () => {
+        if (!isActive || status !== 'idle') return;
+        
+        if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+          const canvas = canvasRef.current;
+          const video = videoRef.current;
+          if (canvas) {
+            canvas.height = video.videoHeight;
+            canvas.width = video.videoWidth;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+              const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: "dontInvert",
+              });
+              
+              if (code && code.data) {
+                processQrCode(code.data);
+                isActive = false; // Stop scanning after success
+                return;
+              }
+            }
+          }
+        }
+        animationFrameId = requestAnimationFrame(tick);
+      };
+
+      startCamera();
+    }
+
+    return () => {
+      isActive = false;
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [step, status]);
+
   return (
     <div className="flex-1 flex flex-col">
       <div className="flex items-center gap-4 mb-8">
@@ -339,23 +406,9 @@ function ActionView({ title, onBack, type }: { title: string, onBack: () => void
                   )}
                 </div>
               ) : (
-                <div className="w-full max-w-sm rounded-[2rem] overflow-hidden border-2 border-dashed border-indigo-200 aspect-square relative">
-                  <Scanner 
-                    onScan={(result) => {
-                      if (result && result.length > 0 && status !== 'loading' && status !== 'success') {
-                        processQrCode(result[0].rawValue);
-                      }
-                    }} 
-                    formats={['qr_code']}
-                    components={{
-                       audio: false,
-                       onOff: false,
-                       torch: false,
-                       finder: true,
-                    }}
-                    allowMultiple={true}
-                    scanDelay={500}
-                  />
+                <div className="w-full max-w-sm rounded-[2rem] overflow-hidden bg-black flex items-center justify-center aspect-square shadow-xl">
+                  <video ref={videoRef} className="w-full h-full object-cover"></video>
+                  <canvas ref={canvasRef} className="hidden"></canvas>
                 </div>
               )}
               
