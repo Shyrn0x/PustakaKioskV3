@@ -200,6 +200,7 @@ function ActionView({ title, onBack, type }: { title: string, onBack: () => void
   const [scannedInput, setScannedInput] = useState("");
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState("");
+  const [manualQrCode, setManualQrCode] = useState("");
 
   const processQrCode = async (input: string) => {
     if (status === 'loading') return;
@@ -326,31 +327,35 @@ function ActionView({ title, onBack, type }: { title: string, onBack: () => void
         }
       };
 
-      const tick = () => {
+      let lastScanTime = 0;
+      const tick = (time: number) => {
         if (!isActive || status !== 'idle') return;
         
-        if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
-          const canvas = canvasRef.current;
-          const video = videoRef.current;
-          if (canvas && video.videoWidth > 0 && video.videoHeight > 0) {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext("2d", { willReadFrequently: true });
-            if (ctx) {
-              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-              const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-              const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                inversionAttempts: "attemptBoth",
-              });
-              
-              if (code && code.data && code.data.trim() !== '') {
-                // Ensure only non-empty strings are sent
-                processQrCode(code.data);
-                isActive = false; // Stop scanning after success
-                return;
+        if (time - lastScanTime > 300) {
+          if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+            const canvas = canvasRef.current;
+            const video = videoRef.current;
+            if (canvas && video.videoWidth > 0 && video.videoHeight > 0) {
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+              const ctx = canvas.getContext("2d", { willReadFrequently: true });
+              if (ctx) {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                  inversionAttempts: "attemptBoth",
+                });
+                
+                if (code && code.data && code.data.trim() !== '') {
+                  // Ensure only non-empty strings are sent
+                  processQrCode(code.data);
+                  isActive = false; // Stop scanning after success
+                  return;
+                }
               }
             }
           }
+          lastScanTime = time;
         }
         animationFrameId = requestAnimationFrame(tick);
       };
@@ -407,9 +412,32 @@ function ActionView({ title, onBack, type }: { title: string, onBack: () => void
                   )}
                 </div>
               ) : (
-                <div className="w-full max-w-sm overflow-hidden bg-black flex items-center justify-center aspect-square">
-                  <video ref={videoRef} className="w-full h-full object-cover"></video>
-                  <canvas ref={canvasRef} className="hidden"></canvas>
+                <div className="w-full max-w-sm flex flex-col gap-4">
+                  <div className="w-full overflow-hidden bg-black flex items-center justify-center aspect-square shadow-xl rounded-[2rem]">
+                    <video ref={videoRef} className="w-full h-full object-contain"></video>
+                    <canvas ref={canvasRef} className="hidden"></canvas>
+                  </div>
+                  
+                  {/* Manual Fallback Input */}
+                  <form 
+                    onSubmit={(e) => { e.preventDefault(); if (manualQrCode) processQrCode(manualQrCode); }}
+                    className="flex items-center gap-2 mt-4"
+                  >
+                    <input 
+                      type="text" 
+                      placeholder="Atau ketik ID Buku..." 
+                      className="flex-1 px-4 py-3 rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#8b5cf6]"
+                      value={manualQrCode}
+                      onChange={(e) => setManualQrCode(e.target.value)}
+                    />
+                    <button 
+                      type="submit" 
+                      disabled={!manualQrCode}
+                      className="px-6 py-3 bg-[#8b5cf6] text-white font-bold rounded-xl disabled:bg-gray-300 hover:bg-[#7c4dff] transition-colors"
+                    >
+                      Proses
+                    </button>
+                  </form>
                 </div>
               )}
               
@@ -770,14 +798,18 @@ function BookManagementView() {
     const ctx = canvas.getContext("2d");
     const img = new Image();
     img.onload = () => {
-      ctx?.drawImage(img, 0, 0, 300, 300);
+      if (ctx) {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, 300, 300);
+        ctx.drawImage(img, 0, 0, 300, 300);
+      }
       const pngFile = canvas.toDataURL("image/png");
       const downloadLink = document.createElement("a");
       downloadLink.download = `QR_${title.replace(/[^a-z0-9]/gi, '_')}.png`;
       downloadLink.href = pngFile;
       downloadLink.click();
     };
-    img.src = "data:image/svg+xml;base64," + btoa(svgData);
+    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
   };
 
   const generateID = () => {
@@ -890,7 +922,7 @@ function BookManagementView() {
           {formData.qr_code && (
             <div className="bg-white p-8 rounded-[2rem] border shadow-sm flex flex-col items-center justify-center gap-4 h-fit">
                <div id={`qr-${formData.qr_code}`} className="p-4 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-                  <QRCodeSVG value={formData.qr_code} size={150} />
+                  <QRCodeSVG value={formData.qr_code} size={150} includeMargin={true} bgColor="#ffffff" fgColor="#000000" level="H" />
                </div>
                <button 
                   type="button"
@@ -919,7 +951,7 @@ function BookManagementView() {
               {books.map((b: any) => (
                 <tr key={b.id} className="hover:bg-gray-50/50">
                   <td className="px-6 py-4">
-                    <div id={`qr-${b.qr_code}`} className="hidden"><QRCodeSVG value={b.qr_code} size={256} /></div>
+                    <div id={`qr-${b.qr_code}`} className="hidden"><QRCodeSVG value={b.qr_code} size={256} includeMargin={true} bgColor="#ffffff" fgColor="#000000" level="H" /></div>
                     <span className="font-mono text-[10px] font-bold text-gray-400">{b.qr_code}</span>
                   </td>
                   <td className="px-6 py-4">
